@@ -1,0 +1,7 @@
+{
+  "name": "PDM_Ionic",
+  "integrations": {
+    "capacitor": {}
+  },
+  "type": "react"
+}
