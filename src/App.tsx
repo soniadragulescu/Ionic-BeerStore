@@ -2,7 +2,8 @@ import React from 'react';
 import { Redirect, Route } from 'react-router-dom';
 import { IonApp, IonRouterOutlet } from '@ionic/react';
 import { IonReactRouter } from '@ionic/react-router';
-import Home from './pages/Home';
+import BeerItemList from "./components/BeerItemList";
+import BeerItemEdit from "./components/BeerItemEdit";
 
 /* Core CSS required for Ionic components to work properly */
 import '@ionic/react/css/core.css';
@@ -22,13 +23,22 @@ import '@ionic/react/css/display.css';
 
 /* Theme variables */
 import './theme/variables.css';
+import {BeerItemProvider} from "./components/BeerItemProvider";
+import { AuthProvider, Login, PrivateRoute } from './auth';
 
 const App: React.FC = () => (
   <IonApp>
     <IonReactRouter>
       <IonRouterOutlet>
-        <Route path="/home" component={Home} exact={true} />
-        <Route exact path="/" render={() => <Redirect to="/home" />} />
+          <AuthProvider>
+              <Route path="/login" component={Login} exact={true}/>
+              <BeerItemProvider>
+                  <PrivateRoute path="/beers" component={BeerItemList} exact={true} />
+                  <PrivateRoute path="/beer" component={BeerItemEdit} exact={true} />
+                  <PrivateRoute path="/beer/:id" component={BeerItemEdit} exact={true} />
+              </BeerItemProvider>
+              <Route exact path="/" render={() => <Redirect to="/beers" />} />
+          </AuthProvider>
       </IonRouterOutlet>
     </IonReactRouter>
   </IonApp>
