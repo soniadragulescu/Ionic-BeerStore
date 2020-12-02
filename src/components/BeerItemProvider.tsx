@@ -4,6 +4,9 @@ import { getLogger } from '../core';
 import { BeerItemProps } from './BeerItemProps';
 import {createItem, getItems, getPageItems, newWebSocket, removeItem, updateItem} from '../api/itemApi';
 import {AuthContext} from "../auth";
+import {useNetwork} from "../core/useNetwork";
+import {Plugins} from "@capacitor/core";
+const { App, BackgroundTask } = Plugins;
 
 const log = getLogger('BeerItemProvider');
 
@@ -98,6 +101,9 @@ const reducer: (state: ItemsState, action: ActionProps) => ItemsState =
                 if (index !== -1) {
                     items.splice(index, 1);
                 }
+                if (item._id != null) {
+                    localStorage.removeItem(item._id);
+                }
                 return { ...state, items, deleting: false };
             case DELETE_ITEM_FAILED:
                 return { ...state, deletingError: payload.error, deleting: false };
@@ -122,6 +128,31 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
     const deleteItem = useCallback<DeleteItemFn>(deleteItemCallback,[token]);
     const getItemsOnPage = useCallback<GetItemsFn>(getItemsOnPageCallback, []);
     const value = { items, fetching, fetchingError, saving, savingError, saveItem, deleting, deletingError, deleteItem, getItemsOnPage };
+    const { networkStatus } = useNetwork();
+    useEffect(() => {
+        console.log("background task")
+        let taskId = BackgroundTask.beforeExit(async () => {
+            if (networkStatus.connected) {
+                const token = localStorage.getItem("token");
+                if (token !== null) {
+                    for (var key in localStorage) {
+                        if (key.toString().startsWith('save_')) {
+                            const item = JSON.parse(localStorage.getItem(key) as string);
+                            const savedItem = await (item._id ? updateItem(token, item) : createItem(token, item));
+                            localStorage.removeItem(key)
+                        }
+
+                        if (key.toString().startsWith('delete_')) {
+                            const item = JSON.parse(localStorage.getItem(key) as string);
+                            await (removeItem(token, item))
+                            localStorage.removeItem(key)
+                        }
+                    }
+                }
+            }
+            BackgroundTask.finish({ taskId });
+        });
+    }, [networkStatus.connected])
     log('returns');
     return (
         <BeerItemContext.Provider value={value}>
@@ -180,29 +211,58 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
     }
 
     async function saveItemCallback(item: BeerItemProps) {
-        try {
-            log('saveItem started');
-            dispatch({ type: SAVE_ITEM_STARTED });
-            const savedItem = await (item._id ? updateItem(token,item) : createItem(token,item));
-            log('saveItem succeeded');
-            dispatch({ type: SAVE_ITEM_SUCCEEDED, payload: { item: savedItem } });
-        } catch (error) {
-            log('saveItem failed');
-            dispatch({ type: SAVE_ITEM_FAILED, payload: { error } });
+        if ( networkStatus.connected) {
+            try {
+                log('saveItem started');
+                dispatch({type: SAVE_ITEM_STARTED});
+                const savedItem = await (item._id ? updateItem(token, item) : createItem(token, item));
+                log('saveItem succeeded');
+                dispatch({type: SAVE_ITEM_SUCCEEDED, payload: {item: savedItem}});
+            } catch (error) {
+                log('saveItem failed');
+                dispatch({type: SAVE_ITEM_FAILED, payload: {error}});
+            }
+        }else{
+            try {
+                log('saveItem in local storage started');
+                dispatch({type: SAVE_ITEM_STARTED});
+                const savedItem = item._id ? localStorage.setItem("save_"+item._id, JSON.stringify(item)): localStorage.setItem("save_"+localStorage.length, JSON.stringify(item));
+                log('saveItem in local storage succeeded');
+                dispatch({type: SAVE_ITEM_SUCCEEDED, payload: {item: item}});
+            } catch (error) {
+                log('saveItem in local storage failed');
+                dispatch({type: SAVE_ITEM_FAILED, payload: {error}});
+            }
+            alert("Saved to local storage because you are OFFLINE!")
         }
     }
 
     async function deleteItemCallback(item: BeerItemProps) {
-        try {
-            log('deleteItem started');
-            dispatch({ type: DELETE_ITEM_STARTED });
-            await (removeItem(token, item));
-            log('deleteItem succeeded');
-            dispatch({ type: DELETE_ITEM_SUCCEEDED, payload: { item: item } });
-        } catch (error) {
-            log('deleteItem failed');
-            dispatch({ type: DELETE_ITEM_FAILED, payload: { error } });
+        if(networkStatus.connected){
+            try {
+                log('deleteItem started');
+                dispatch({ type: DELETE_ITEM_STARTED });
+                await (removeItem(token, item));
+                log('deleteItem succeeded');
+                dispatch({ type: DELETE_ITEM_SUCCEEDED, payload: { item: item } });
+            } catch (error) {
+                log('deleteItem failed');
+                dispatch({ type: DELETE_ITEM_FAILED, payload: { error } });
+            }
+        }else{
+            try {
+                log('deleteItem local storage started');
+                dispatch({ type: DELETE_ITEM_STARTED });
+                localStorage.setItem("delete_"+item._id, JSON.stringify(item))
+                log('deleteItem local storage succeeded');
+                dispatch({ type: DELETE_ITEM_SUCCEEDED, payload: { item: item } });
+            } catch (error) {
+                log('deleteItem local storage failed');
+                dispatch({ type: DELETE_ITEM_FAILED, payload: { error } });
+            }
+            alert("Deleted only on local storage because you are OFFLINE!")
         }
+
     }
 
     function wsEffect() {

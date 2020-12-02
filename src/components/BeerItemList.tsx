@@ -1,4 +1,4 @@
-import React, {useContext, useEffect, useState} from 'react';
+import React, {useCallback, useContext, useEffect, useState} from 'react';
 import { RouteComponentProps } from 'react-router';
 import {
     IonContent,
@@ -17,6 +17,9 @@ import { getLogger } from '../core';
 import { BeerItemContext } from './BeerItemProvider';
 import BeerItem from "./BeerItem";
 import {AuthContext} from "../auth";
+import {useAppState} from "../core/useAppState";
+import {useNetwork} from "../core/useNetwork";
+import {createItem, removeItem, updateItem} from "../api/itemApi";
 
 const log = getLogger('ItemList');
 const itemsAtOnce = 20;
@@ -28,6 +31,9 @@ const BeerItemList: React.FC<RouteComponentProps> = ({ history }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [filtering, setFiltering] = useState(false);
     const [pageNumber, setPageNumber] = useState(itemsAtOnce);
+    const { appState } = useAppState();
+    const { networkStatus } = useNetwork();
+
     useEffect(()=>{
         console.log(items)
         //const results = items?.filter(item => item.name.toLowerCase().includes(searchTerm));
@@ -63,6 +69,8 @@ const BeerItemList: React.FC<RouteComponentProps> = ({ history }) => {
     return (
         <IonPage>
             <IonHeader>
+                <IonLabel><div>App state is {appState.isActive ? 'active' : 'inactive'}</div></IonLabel>
+                <IonLabel>Network status is {networkStatus.connected ? 'online' : 'offline'}</IonLabel>
                 <IonToolbar>
                     <IonTitle>Beers</IonTitle>
                     <IonSearchbar value = {searchTerm} onIonChange = {e => setSearchTerm(e.detail.value!)} placeholder = "Filter items"/>
