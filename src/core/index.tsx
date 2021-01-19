@@ -9,6 +9,8 @@ export interface ResponseProps<T> {
     data: T;
 }
 
+export const mapsApiKey = 'AIzaSyAbzdZOX_cMbH5JwCsZBC-L1qPortqmIwU';
+
 export function withLogs<T>(promise: Promise<ResponseProps<T>>, fnName: string): Promise<T> {
     log(`${fnName} - started`);
     return promise

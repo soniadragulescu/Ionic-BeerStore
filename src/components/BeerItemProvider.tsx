@@ -1,4 +1,4 @@
-import React, {useCallback, useContext, useEffect, useReducer} from 'react';
+import React, {useCallback, useContext, useEffect, useReducer, useState} from 'react';
 import PropTypes from 'prop-types';
 import { getLogger } from '../core';
 import { BeerItemProps } from './BeerItemProps';
@@ -6,7 +6,8 @@ import {createItem, getItems, getPageItems, newWebSocket, removeItem, updateItem
 import {AuthContext} from "../auth";
 import {useNetwork} from "../core/useNetwork";
 import {Plugins} from "@capacitor/core";
-const { App, BackgroundTask } = Plugins;
+import { usePhotoGallery } from "../core/usePhotoGallery";
+const {  BackgroundTask } = Plugins;
 
 const log = getLogger('BeerItemProvider');
 
@@ -24,7 +25,7 @@ export interface ItemsState {
     deletingError?:Error|null,
     saveItem?: SaveItemFn,
     deleteItem?:DeleteItemFn,
-    getItemsOnPage?: GetItemsFn
+    getItemsOnPage?: GetItemsFn,
 }
 
 interface ActionProps {
@@ -57,11 +58,12 @@ const reducer: (state: ItemsState, action: ActionProps) => ItemsState =
             case FETCH_ITEMS_STARTED:
                 return { ...state, fetching: true, fetchingError: null };
             case FETCH_ITEMS_SUCCEEDED:
-                payload.items.map( (b: BeerItemProps) => {
+                /*payload.items.map( (b: BeerItemProps) => {
                     if (b._id != null) {
                         localStorage.setItem(b._id, JSON.stringify(b));
                     }
-                })
+                })*/
+
                 return { ...state, items: payload.items, fetching: false };
             case FETCH_ITEMS_ON_PAGE_STARTED:
                 return { ...state, fetching: true, fetchingError: null };
@@ -80,7 +82,7 @@ const reducer: (state: ItemsState, action: ActionProps) => ItemsState =
             case SAVE_ITEM_STARTED:
                 return { ...state, savingError: null, saving: true };
             case SAVE_ITEM_SUCCEEDED:
-                localStorage.setItem(payload.item._id, JSON.stringify(payload.item));
+                /*localStorage.setItem(payload.item._id, JSON.stringify(payload.item));*/
                 items = [...(state.items || [])];
                 item = payload.item;
                 index = items.findIndex(it => it._id === item._id);
@@ -127,8 +129,12 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
     const saveItem = useCallback<SaveItemFn>(saveItemCallback, [token]);
     const deleteItem = useCallback<DeleteItemFn>(deleteItemCallback,[token]);
     const getItemsOnPage = useCallback<GetItemsFn>(getItemsOnPageCallback, []);
-    const value = { items, fetching, fetchingError, saving, savingError, saveItem, deleting, deletingError, deleteItem, getItemsOnPage };
+
+    const value = { items, fetching, fetchingError, saving, savingError, saveItem, deleting, deletingError, deleteItem, getItemsOnPage};
     const { networkStatus } = useNetwork();
+
+    const {writePictureFromServer} = usePhotoGallery();
+
     useEffect(() => {
         console.log("background task")
         let taskId = BackgroundTask.beforeExit(async () => {
@@ -175,9 +181,15 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
                 log('fetchItems started');
                 dispatch({ type: FETCH_ITEMS_STARTED});
                 const items = await getItems(token);
+                items.map((i)=>{
+                    if(i.photo){
+                        writePictureFromServer(i.photo)
+                    }
+                    return i;
+                })
                 log('fetchItems succeeded');
                 if (!canceled) {
-                    dispatch({ type: FETCH_ITEMS_SUCCEEDED, payload: { items } });
+                    dispatch({ type: FETCH_ITEMS_SUCCEEDED, payload: { items: items } });
                 }
             } catch (error) {
                 log('fetchItems failed');
@@ -211,7 +223,7 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
     }
 
     async function saveItemCallback(item: BeerItemProps) {
-        if ( networkStatus.connected) {
+        //if ( networkStatus.connected) {
             try {
                 log('saveItem started');
                 dispatch({type: SAVE_ITEM_STARTED});
@@ -222,7 +234,7 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
                 log('saveItem failed');
                 dispatch({type: SAVE_ITEM_FAILED, payload: {error}});
             }
-        }else{
+        /*}else{
             try {
                 log('saveItem in local storage started');
                 dispatch({type: SAVE_ITEM_STARTED});
@@ -234,11 +246,11 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
                 dispatch({type: SAVE_ITEM_FAILED, payload: {error}});
             }
             alert("Saved to local storage because you are OFFLINE!")
-        }
+        }*/
     }
 
     async function deleteItemCallback(item: BeerItemProps) {
-        if(networkStatus.connected){
+        //if(networkStatus.connected){
             try {
                 log('deleteItem started');
                 dispatch({ type: DELETE_ITEM_STARTED });
@@ -249,7 +261,7 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
                 log('deleteItem failed');
                 dispatch({ type: DELETE_ITEM_FAILED, payload: { error } });
             }
-        }else{
+        /*}else{
             try {
                 log('deleteItem local storage started');
                 dispatch({ type: DELETE_ITEM_STARTED });
@@ -261,7 +273,7 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
                 dispatch({ type: DELETE_ITEM_FAILED, payload: { error } });
             }
             alert("Deleted only on local storage because you are OFFLINE!")
-        }
+        }*/
 
     }
 
@@ -277,6 +289,9 @@ export const BeerItemProvider: React.FC<ItemProviderProps> = ({ children }) => {
                 const { type, payload: item } = message;
                 log(`ws message, item ${type}`);
                 if (type === 'created' || type === 'updated') {
+                    if(item.photo){
+                        writePictureFromServer(item.photo);
+                    }
                     dispatch({ type: SAVE_ITEM_SUCCEEDED, payload: { item } });
                 }
             });

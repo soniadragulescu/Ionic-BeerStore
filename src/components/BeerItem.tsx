@@ -1,19 +1,24 @@
 import React from 'react';
-import { IonItem, IonLabel } from '@ionic/react';
+import { IonItem, IonLabel, IonCard, IonCardHeader, IonCardTitle, IonImg, IonCardSubtitle, IonCardContent } from '@ionic/react';
 import { BeerItemProps } from './BeerItemProps';
 
 interface BeerItemPropsExt extends BeerItemProps {
     onEdit: (id?: string) => void;
 }
 
-const BeerItem: React.FC<BeerItemPropsExt> = ({ _id, name, price, creationDate, favorite, onEdit }) => {
+const BeerItem: React.FC<BeerItemPropsExt> = ({ _id, name, price, creationDate, favorite, photo, onEdit }) => {
     return (
-        <IonItem onClick={() => onEdit(_id)}>
-            <IonLabel>{name}</IonLabel>
-            <IonLabel class = "price-column">{price}</IonLabel>
-            <IonLabel class = "creation-date-column">{creationDate}</IonLabel>
-            <IonLabel>{favorite ? '<3' : 'X'}</IonLabel>
-        </IonItem>
+        <IonCard onClick={() => onEdit(_id)}>
+            <IonImg src={photo?.webviewPath} className = "card-img"/>
+            <IonCardHeader>
+                <IonCardSubtitle>{favorite ? '<3' : 'X'}</IonCardSubtitle>
+                <IonCardTitle>{name}</IonCardTitle>
+            </IonCardHeader>
+            <IonCardContent>
+                <IonItem>{price} RON</IonItem>
+                <IonItem>Date: {creationDate}</IonItem>
+            </IonCardContent>
+        </IonCard>
     );
 };
 

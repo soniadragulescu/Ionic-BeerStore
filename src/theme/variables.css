@@ -235,3 +235,26 @@ http://ionicframework.com/docs/theming/ */
   .price-column { display:none !important;}
   .creation-date-column {display:none !important;}
 }
+
+.card-img {
+  width: 100px;
+  height: 100px;
+}
+
+.appTitle, .app-status, .net-status {
+  display: flex;
+  align-items: center;
+  margin-left: 100px;
+  padding: 10px;
+}
+
+.listContainer{
+  display: flex;
+  justify-content: center;
+}
+
+.headerContainer {
+  display: flex;
+  justify-content: center;
+  padding: 10px;
+}
